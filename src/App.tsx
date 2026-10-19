@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import BookingDialog, { type Film } from "./BookingDialog";
 import posterAube from "./assets/aube.svg";
 import posterMemoire from "./assets/memoire.svg";
 import posterOrbite from "./assets/orbite.svg";
 
-const films = [
+const films: Film[] = [
   { id: 1, title: "Après l’aube", genre: "Drame", time: "18 h 10", available: true, poster: posterAube },
   { id: 2, title: "La mémoire des murs", genre: "Documentaire", time: "19 h 30", available: false, poster: posterMemoire },
   { id: 3, title: "Orbite 9", genre: "Science-fiction", time: "21 h 00", available: true, poster: posterOrbite },
@@ -13,6 +14,9 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const selectedFilm = films.find((film) => film.title === selected);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [bookingCount, setBookingCount] = useState(0);
+  const [lastBooking, setLastBooking] = useState<Film | null>(null);
   const [favorites, setFavorites] = useState<number[]>([]);
   const filteredFilms = useMemo(
     () => films.filter((film) => film.title.toLowerCase().includes(query.toLowerCase())),
@@ -20,6 +24,20 @@ export default function App() {
   );
   const toggleFavorite = (id: number) => {
     setFavorites((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+  };
+
+  const openBooking = (title: string, trigger: HTMLButtonElement) => {
+    triggerRef.current = trigger;
+    setSelected(title);
+  };
+
+  const handleDialogClose = (confirmed: boolean) => {
+    if (selectedFilm && confirmed) {
+      setLastBooking(selectedFilm);
+      setBookingCount((count) => count + 1);
+    }
+    setSelected(null);
+    triggerRef.current?.focus();
   };
 
   return (
@@ -56,7 +74,8 @@ export default function App() {
                     <h3>{film.title}</h3>
                     <p>{film.genre} · {film.time}</p>
                     <div className="actions">
-                      <div className="booking-trigger fake-button" onClick={() => setSelected(film.title)}>Réserver {film.title}</div>
+                      <button type="button" className="booking-trigger"
+                        onClick={(event) => openBooking(film.title, event.currentTarget)}>Réserver {film.title}</button>
                       <button type="button" className="favorite" aria-pressed={isFavorite}
                         aria-label={"Favori : " + film.title} onClick={() => toggleFavorite(film.id)}>
                         <span aria-hidden="true">{isFavorite ? "★" : "☆"}</span>
@@ -69,26 +88,14 @@ export default function App() {
           </div>
           {filteredFilms.length === 0 && <p>Aucun film ne correspond à votre recherche.</p>}
         </section>
+        <div className="selection" role="status">
+          {lastBooking && `Réservation n° ${bookingCount} (simulation) : ${lastBooking.title}, séance de ${lastBooking.time}.`}
+        </div>
         <section id="infos" className="infos" aria-labelledby="infos-title">
           <h2 id="infos-title">Informations pratiques</h2>
           <p>Le cinéma ouvre trente minutes avant la première séance.</p>
         </section>
-        {selectedFilm && (
-          <div className="backdrop">
-            <div className="modal">
-              <div className="dialog-heading">
-                <h2>Réserver {selected}</h2>
-                <span className="close" onClick={() => setSelected(null)}>×</span>
-              </div>
-              <p>{selectedFilm.genre} · Séance de {selectedFilm.time}</p>
-              <p className={"availability " + (selectedFilm.available ? "available" : "unavailable")}>
-                {selectedFilm.available ? "Places disponibles" : "Séance complète"}
-              </p>
-              <p>Consultez la séance et sa disponibilité avant de revenir au programme.</p>
-              <button className="dialog-action" type="button" onClick={() => setSelected(null)}>Revenir aux films</button>
-            </div>
-          </div>
-        )}
+        {selectedFilm && <BookingDialog film={selectedFilm} onClose={handleDialogClose} />}
       </main>
     </>
   );
